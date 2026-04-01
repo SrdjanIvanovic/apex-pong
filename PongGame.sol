@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/**
+ * @title PongGame
+ * @notice Pong multiplayer on ApexFusion Nexus.
+ *
+ *  - Both players pay 1 AP3X when creating / joining a game.
+ *  - Winner receives 94% of the pot (1.88 AP3X from 2 AP3X total).
+ *  - 6% covers gas costs and game infrastructure maintenance.
+ *  - Pull pattern: winnings accumulate in pendingWithdrawals — withdraw anytime.
+ *  - Timeout: 5 minutes of inactivity → other player wins automatically.
+ *  - If no opponent joins — creator can cancel and get their entry fee back.
+ *  - Testnet: entryFee = 0 (free play, same mechanics).
+ */
+contract PongGame {
+
+    enum GameState { Waiting, Active, Finished, Cancelled }
+
+    struct Game {
+        address player1;
+        address player2;
+        address winner;
+        GameState state;
+        uint256 pot;
+        uint256 createdAt;
+        uint256 lastActivityAt;
+    }
+
+    address private _infra;          // infrastructure address (gas & maintenance)
+    uint256 public entryFee;
+    uint256 public feeBps = 600;     // 6%
+    uint256 public gameTimeout = 5 minutes;
+
+    uint256 private _gameCounter;
+    mapping(uint256 => Game)    public games;
+    mapping(address => uint256) public playerActiveGame;
+    mapping(address => uint256) public pendingWithdrawals;
+
+    event GameCreated(uint256 indexed gameId, address indexed player1, uint256 entryFee);
+    event GameJoined(uint256 indexed gameId, address indexed player2);
+    event GameFinished(uint256 indexed gameId, address indexed winner, uint256 prize);
+    event GameCancelled(uint256 indexed gameId, address indexed by);
+    event ActivityPinged(uint256 indexed gameId, address indexed player);
+    event Withdrawn(address indexed player, uint256 amount);
+
+    error WrongEntryFee(uint256 sent, uint256 required);
+    error GameNotFound(uint256 gameId);
+    error GameNotWaiting(uint256 gameId);
+    error GameNotActive(uint256 gameId);
+    error NotAPlayer(uint256 gameId, address caller);
+    error AlreadyInGame(address player, uint256 activeGameId);
+    error CannotJoinOwnGame();
+    error GameNotTimedOut();
+    error NothingToWithdraw();
+    error TransferFailed();
+    error Unauthorized();
+
+    constructor(uint256 _entryFee, address infraAddress) {
+        _infra = infraAddress;
+        entryFee = _entryFee;
+    }
+
+    modifier onlyInfra() {
+        if (msg.sender != _infra) revert Unauthorized();
+        _;
+    }
+
+    // ─── Player Actions ──────────────────────────────────────────────────────
+
+    /// @notice Create a new game. Locks entry fee on-chain.
+    function createGame() external payable returns (uint256 gameId) {
+        if (msg.value != entryFee) revert WrongEntryFee(msg.value, entryFee);
+        if (playerActiveGame[msg.sender] != 0)
+            revert AlreadyInGame(msg.sender, playerActiveGame[msg.sender]);
+
+        _gameCounter++;
+        gameId = _gameCounter;
+        games[gameId] = Game({
+            player1:        msg.sender,
+            player2:        address(0),
+            winner:         address(0),
+            state:          GameState.Waiting,
+            pot:            msg.value,
+            createdAt:      block.timestamp,
+            lastActivityAt: block.timestamp
+        });
+        playerActiveGame[msg.sender] = gameId;
+        emit GameCreated(gameId, msg.sender, entryFee);
+    }
+
+    /// @notice Join a waiting game. Both players have paid — game starts immediately.
+    function joinGame(uint256 gameId) external payable {
+        Game storage g = games[gameId];
+        if (g.player1 == address(0))      revert GameNotFound(gameId);
+        if (g.state != GameState.Waiting) revert GameNotWaiting(gameId);
+        if (msg.sender == g.player1)      revert CannotJoinOwnGame();
+        if (msg.value != entryFee)        revert WrongEntryFee(msg.value, entryFee);
+        if (playerActiveGame[msg.sender] != 0)
+            revert AlreadyInGame(msg.sender, playerActiveGame[msg.sender]);
+
+        g.player2        = msg.sender;
+        g.state          = GameState.Active;
+        g.pot           += msg.value;
+        g.lastActivityAt = block.timestamp;
+        playerActiveGame[msg.sender] = gameId;
+        emit GameJoined(gameId, msg.sender);
+    }
+
+    /// @notice Report winner at end of match. Prize goes to pendingWithdrawals.
+    function reportWinner(uint256 gameId, address winner) external {
+        Game storage g = games[gameId];
+        if (g.state != GameState.Active) revert GameNotActive(gameId);
+        if (msg.sender != g.player1 && msg.sender != g.player2)
+            revert NotAPlayer(gameId, msg.sender);
+        if (winner != g.player1 && winner != g.player2)
+            revert NotAPlayer(gameId, winner);
+        _finalise(gameId, winner);
+    }
+
+    /// @notice Heartbeat — call every ~30s during a game to prevent false timeout.
+    function pingActivity(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.state != GameState.Active) revert GameNotActive(gameId);
+        if (msg.sender != g.player1 && msg.sender != g.player2)
+            revert NotAPlayer(gameId, msg.sender);
+        g.lastActivityAt = block.timestamp;
+        emit ActivityPinged(gameId, msg.sender);
+    }
+
+    /// @notice Cancel a game still waiting for an opponent. Entry fee is returned.
+    function cancelGame(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.state != GameState.Waiting) revert GameNotWaiting(gameId);
+        if (msg.sender != g.player1 && msg.sender != _infra)
+            revert NotAPlayer(gameId, msg.sender);
+
+        g.state = GameState.Cancelled;
+        delete playerActiveGame[g.player1];
+        if (g.pot > 0) {
+            pendingWithdrawals[g.player1] += g.pot;
+            g.pot = 0;
+        }
+        emit GameCancelled(gameId, msg.sender);
+    }
+
+    /// @notice Win by timeout: opponent was inactive for 5+ minutes.
+    function claimTimeout(uint256 gameId) external {
+        Game storage g = games[gameId];
+        if (g.state != GameState.Active) revert GameNotActive(gameId);
+        if (block.timestamp < g.lastActivityAt + gameTimeout) revert GameNotTimedOut();
+        if (msg.sender != g.player1 && msg.sender != g.player2)
+            revert NotAPlayer(gameId, msg.sender);
+        _finalise(gameId, msg.sender);
+    }
+
+    // ─── Withdraw ─────────────────────────────────────────────────────────────
+
+    /// @notice Withdraw all accumulated winnings in a single transaction.
+    ///         Win multiple games, withdraw them all at once.
+    function withdraw() external {
+        uint256 amount = pendingWithdrawals[msg.sender];
+        if (amount == 0) revert NothingToWithdraw();
+        pendingWithdrawals[msg.sender] = 0;
+        _send(msg.sender, amount);
+        emit Withdrawn(msg.sender, amount);
+    }
+
+    // ─── Views ────────────────────────────────────────────────────────────────
+
+    function getGame(uint256 gameId) external view returns (Game memory) { return games[gameId]; }
+    function totalGames() external view returns (uint256) { return _gameCounter; }
+    function pendingOf(address player) external view returns (uint256) { return pendingWithdrawals[player]; }
+
+    // ─── Infrastructure ───────────────────────────────────────────────────────
+
+    function setEntryFee(uint256 _fee) external onlyInfra { entryFee = _fee; }
+    function setFeeBps(uint256 _bps)   external onlyInfra { require(_bps<=1500,"max 15%"); feeBps=_bps; }
+    function setGameTimeout(uint256 s) external onlyInfra { gameTimeout=s; }
+
+    // ─── Internal ────────────────────────────────────────────────────────────
+
+    function _finalise(uint256 gameId, address winner) internal {
+        Game storage g = games[gameId];
+        g.winner = winner;
+        g.state  = GameState.Finished;
+        delete playerActiveGame[g.player1];
+        delete playerActiveGame[g.player2];
+
+        uint256 fee   = (g.pot * feeBps) / 10_000;  // 6% for gas & infrastructure
+        uint256 prize = g.pot - fee;
+
+        pendingWithdrawals[winner] += prize;
+        pendingWithdrawals[_infra] += fee;
+        g.pot = 0;
+        emit GameFinished(gameId, winner, prize);
+    }
+
+    function _send(address to, uint256 amount) internal {
+        (bool ok,) = payable(to).call{value: amount}("");
+        if (!ok) revert TransferFailed();
+    }
+
+    receive() external payable {}
+}

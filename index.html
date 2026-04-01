@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PONG — ApexFusion Nexus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:     #050a0f;
+  --glow:   #00ffb4;
+  --glow2:  #00c8ff;
+  --dim:    rgba(0,255,180,.42);
+  --txt:    #e0fff8;
+  --panel:  rgba(0,15,25,.93);
+  --border: rgba(0,255,180,.18);
+  --gold:   #f0c040;
+  --red:    #ff4060;
+  --purple: #b06aff;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'Share Tech Mono',monospace;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.13) 2px,rgba(0,0,0,.13) 4px)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,255,180,.03) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,255,180,.03) 1px,transparent 1px);background-size:40px 40px}
+
+header{position:relative;z-index:10;width:100%;max-width:900px;
+  padding:22px 20px 8px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{font-family:'VT323',monospace;font-size:3rem;letter-spacing:.12em;line-height:1;
+  color:var(--glow);text-shadow:0 0 16px var(--glow),0 0 36px rgba(0,255,180,.26)}
+.logo span{color:var(--gold);text-shadow:0 0 14px var(--gold)}
+.net-badge{display:flex;align-items:center;gap:7px;background:var(--panel);
+  border:1px solid var(--border);border-radius:5px;padding:5px 13px;font-size:.7rem;letter-spacing:.08em}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--glow);
+  box-shadow:0 0 8px var(--glow);animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* wallet bar */
+#wbar{position:relative;z-index:10;width:100%;max-width:900px;
+  padding:4px 20px 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+button{font-family:'Share Tech Mono',monospace;letter-spacing:.06em;cursor:pointer;
+  border:none;border-radius:4px;transition:all .15s}
+.btn{background:transparent;border:1px solid var(--glow);color:var(--glow);
+  padding:8px 18px;font-size:.74rem;text-transform:uppercase}
+.btn:hover:not(:disabled){background:rgba(0,255,180,.1);box-shadow:0 0 12px rgba(0,255,180,.26)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-gold{border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover:not(:disabled){background:rgba(240,192,64,.1);box-shadow:0 0 12px rgba(240,192,64,.26)}
+.btn-red{border-color:var(--red);color:var(--red)}
+.btn-red:hover:not(:disabled){background:rgba(255,64,96,.1)}
+.btn-purple{border-color:var(--purple);color:var(--purple)}
+.btn-purple:hover:not(:disabled){background:rgba(176,106,255,.12);box-shadow:0 0 12px rgba(176,106,255,.26)}
+.btn-sm{padding:5px 12px;font-size:.68rem}
+
+.chip{background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:6px 12px;font-size:.7rem}
+.chip-blue{color:var(--glow2)}
+.chip-gold{color:var(--gold);border-color:rgba(240,192,64,.35);background:rgba(240,192,64,.08)}
+
+#net-tag{font-size:.68rem;padding:6px 11px;border-radius:4px;border:1px solid transparent}
+.tag-test{border-color:var(--glow2)!important;color:var(--glow2);background:rgba(0,200,255,.07)}
+.tag-main{border-color:var(--gold)!important;color:var(--gold);background:rgba(240,192,64,.07)}
+.tag-bad{border-color:var(--red)!important;color:var(--red);background:rgba(255,64,96,.07)}
+
+/* reward */
+#reward-wrap{display:none;align-items:center;gap:8px}
+#reward-wrap .r-amt{font-family:'VT323',monospace;font-size:1.15rem;color:var(--gold)}
+
+/* main */
+main{position:relative;z-index:10;width:100%;max-width:900px;
+  padding:0 20px 40px;display:flex;flex-direction:column;align-items:center;gap:16px}
+
+/* mode tabs */
+#mode-tabs{display:flex;gap:8px;width:100%}
+.tab{flex:1;padding:10px 6px;font-family:'Share Tech Mono',monospace;font-size:.72rem;
+  letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);
+  border-radius:4px;background:transparent;color:var(--dim);transition:all .2s;text-align:center}
+.tab.active-single{border-color:var(--glow);color:var(--glow);background:rgba(0,255,180,.07);
+  box-shadow:0 0 10px rgba(0,255,180,.15)}
+.tab.active-duo{border-color:var(--purple);color:var(--purple);background:rgba(176,106,255,.07);
+  box-shadow:0 0 10px rgba(176,106,255,.15)}
+.tab.active-online{border-color:var(--gold);color:var(--gold);background:rgba(240,192,64,.07);
+  box-shadow:0 0 10px rgba(240,192,64,.15)}
+.tab:hover:not(.active-single):not(.active-duo):not(.active-online){
+  border-color:rgba(0,255,180,.35);color:var(--txt)}
+
+/* controls hint */
+#ctrl-hint{font-size:.65rem;color:var(--dim);letter-spacing:.06em;
+  display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.key{border:1px solid var(--border);border-radius:3px;padding:2px 8px;color:var(--glow2)}
+
+/* scoreboard */
+#scoreboard{display:flex;align-items:center;justify-content:center;gap:28px;
+  font-family:'VT323',monospace;font-size:3.8rem;
+  text-shadow:0 0 10px rgba(0,255,180,.4);width:100%;letter-spacing:.1em}
+.score-col{text-align:center}
+.plbl{font-size:.62rem;font-family:'Share Tech Mono',monospace;
+  text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin-bottom:2px}
+#sdiv{font-size:2.8rem;color:var(--border);margin-top:-6px}
+
+/* canvas */
+#cwrap{position:relative;border:1px solid var(--border);
+  box-shadow:0 0 28px rgba(0,255,180,.07),inset 0 0 40px rgba(0,0,0,.4);background:#020810}
+canvas{display:block}
+
+/* overlay */
+#overlay{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:rgba(2,8,16,.9);backdrop-filter:blur(2px)}
+.ov-title{font-family:'VT323',monospace;font-size:2.8rem;
+  color:var(--glow);text-shadow:0 0 18px var(--glow);text-align:center}
+.ov-sub{font-size:.72rem;color:var(--dim);text-align:center;
+  max-width:380px;line-height:1.7;letter-spacing:.04em}
+.pill-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+
+/* game ID box */
+#gid-box{display:none;width:100%;background:rgba(0,200,255,.06);
+  border:1px solid rgba(0,200,255,.3);border-radius:6px;padding:14px 18px;text-align:center}
+.gid-lbl{font-size:.62rem;color:var(--dim);letter-spacing:.1em;margin-bottom:4px}
+.gid-num{font-family:'VT323',monospace;font-size:3.2rem;color:var(--glow2);
+  text-shadow:0 0 14px var(--glow2);letter-spacing:.25em}
+.gid-hint{font-size:.63rem;color:var(--dim);margin-top:3px}
+
+/* panels */
+#panels{width:100%}
+.panel{display:none;width:100%}
+.panel.visible{display:block}
+
+/* online sub-panels */
+#online-panel{display:flex;flex-direction:column;gap:12px}
+.op-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.op-box{background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+.op-box h3{font-family:'VT323',monospace;font-size:1.25rem;letter-spacing:.1em}
+.op-box.create h3{color:var(--glow)}
+.op-box.join   h3{color:var(--gold)}
+.op-box p{font-size:.67rem;color:var(--dim);line-height:1.5}
+
+/* WebRTC signal boxes */
+#signal-section{display:none;background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+#signal-section h3{font-family:'VT323',monospace;font-size:1.2rem;color:var(--purple);letter-spacing:.1em}
+.sig-step{font-size:.67rem;color:var(--dim);line-height:1.55}
+.sig-step b{color:var(--txt)}
+textarea{width:100%;background:#020810;border:1px solid var(--border);border-radius:3px;
+  color:var(--glow2);font-family:'Share Tech Mono',monospace;font-size:.65rem;
+  padding:8px 10px;outline:none;resize:vertical;min-height:70px;transition:border-color .2s}
+textarea:focus{border-color:var(--glow2)}
+input[type=number]{width:100%;background:#020810;border:1px solid var(--border);
+  border-radius:3px;color:var(--glow2);font-family:'Share Tech Mono',monospace;
+  font-size:.75rem;padding:7px 10px;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--glow2)}
+input::placeholder,textarea::placeholder{color:rgba(0,200,255,.3)}
+
+/* p2p status */
+#p2p-status{font-size:.68rem;padding:6px 12px;border-radius:4px;
+  border:1px solid var(--border);color:var(--dim);text-align:center}
+.p2p-connecting{border-color:var(--gold)!important;color:var(--gold)!important;background:rgba(240,192,64,.06)!important}
+.p2p-connected{border-color:var(--glow)!important;color:var(--glow)!important;background:rgba(0,255,180,.06)!important}
+.p2p-error{border-color:var(--red)!important;color:var(--red)!important;background:rgba(255,64,96,.06)!important}
+
+/* log */
+#log{width:100%;background:var(--panel);border:1px solid var(--border);
+  border-radius:4px;padding:10px 14px;font-size:.67rem;color:var(--dim);
+  min-height:44px;max-height:130px;overflow-y:auto;line-height:1.8}
+.lok{color:var(--glow)}.lwarn{color:var(--gold)}.lerr{color:var(--red)}.lpurp{color:var(--purple)}
+
+/* win flash */
+@keyframes wflash{0%,100%{opacity:0}25%,75%{opacity:1}}
+#wflash{display:none;position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(0,255,180,.22) 0%,transparent 70%);
+  animation:wflash 1.4s ease forwards}
+
+@media(max-width:640px){
+  .op-row{grid-template-columns:1fr}
+  .logo{font-size:2.2rem}
+  canvas{width:100%;height:auto}
+  #mode-tabs .tab{font-size:.62rem;padding:8px 4px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">PONG <span>// AP3X</span></div>
+    <div style="font-size:.6rem;color:var(--dim);letter-spacing:.08em;margin-top:2px">APEXFUSION NEXUS</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end">
+    <div class="net-badge"><div class="dot"></div><span id="net-name">NOT CONNECTED</span></div>
+    <div id="net-tag">—</div>
+  </div>
+</header>
+
+<!-- WALLET BAR -->
+<div id="wbar">
+  <button class="btn" id="btn-connect">⬡ Connect Wallet</button>
+  <span class="chip chip-blue" id="addr-chip" style="display:none"></span>
+
+  <!-- pending reward -->
+  <div id="reward-wrap">
+    <span class="chip chip-gold">🏆 Pending: <span class="r-amt" id="reward-val">0</span> AP3X</span>
+    <button class="btn btn-gold btn-sm" id="btn-withdraw">WITHDRAW</button>
+  </div>
+
+  <button class="btn btn-sm" id="btn-testnet" style="display:none">→ Testnet</button>
+  <button class="btn btn-sm" id="btn-mainnet" style="display:none">→ Mainnet</button>
+</div>
+
+<main>
+
+  <!-- MODE TABS -->
+  <div id="mode-tabs">
+    <div class="tab active-single" id="tab-single" onclick="setMode('single')">
+      ▶ SINGLE<br><span style="font-size:.58rem;opacity:.7">vs AI · free</span>
+    </div>
+    <div class="tab" id="tab-duo" onclick="setMode('duo')">
+      ⚔ DUO HOME<br><span style="font-size:.58rem;opacity:.7">same keyboard · free</span>
+    </div>
+    <div class="tab" id="tab-online" onclick="setMode('online')">
+      ⬡ ONLINE<br><span style="font-size:.58rem;opacity:.7">2 locations · 1 AP3X</span>
+    </div>
+  </div>
+
+  <!-- CONTROLS HINT -->
+  <div id="ctrl-hint">
+    <span class="key">↑ ↓</span><span style="color:var(--dim)">your paddle</span>
+  </div>
+
+  <!-- SCOREBOARD -->
+  <div id="scoreboard">
+    <div class="score-col">
+      <div class="plbl" id="lbl1">PLAYER</div>
+      <div id="sc1">0</div>
+    </div>
+    <div id="sdiv">:</div>
+    <div class="score-col">
+      <div class="plbl" id="lbl2">AI</div>
+      <div id="sc2">0</div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div id="cwrap">
+    <canvas id="c" width="720" height="460"></canvas>
+    <div id="wflash"></div>
+    <div id="overlay">
+      <div class="ov-title" id="ov-title">PONG</div>
+      <div class="ov-sub"  id="ov-sub">Select a game mode above, then press START.</div>
+      <div class="pill-row" id="ov-btns">
+        <button class="btn" id="btn-start">▶ START</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME ID (shown after creating online game) -->
+  <div id="gid-box">
+    <div class="gid-lbl">YOUR GAME ID — SHARE WITH OPPONENT</div>
+    <div class="gid-num" id="gid-num">—</div>
+    <div class="gid-hint">Opponent enters this number in the "Join Game" panel</div>
+    <button class="btn btn-sm" id="btn-copy-gid" style="margin-top:8px">📋 COPY ID</button>
+  </div>
+
+  <!-- PANELS -->
+  <div id="panels">
+
+    <!-- SINGLE panel (empty, just play) -->
+    <div class="panel visible" id="panel-single">
+      <div style="text-align:center;font-size:.67rem;color:var(--dim);padding:8px 0">
+        Solo mode — you vs AI. Press <span class="key">↑ ↓</span> to move your paddle.
+        First to <strong style="color:var(--glow)">5 points</strong> wins.
+      </div>
+    </div>
+
+    <!-- DUO HOME panel -->
+    <div class="panel" id="panel-duo">
+      <div style="text-align:center;font-size:.67rem;color:var(--dim);padding:8px 0;line-height:1.7">
+        Two players, one keyboard — completely free.<br>
+        <span class="key">W</span><span class="key">S</span> = left paddle &nbsp;|&nbsp;
+        <span class="key">↑</span><span class="key">↓</span> = right paddle.<br>
+        First to <strong style="color:var(--purple)">5 points</strong> wins.
+      </div>
+    </div>
+
+    <!-- ONLINE panel -->
+    <div class="panel" id="panel-online">
+      <div id="online-panel">
+
+        <!-- wallet required notice -->
+        <div id="wallet-notice" style="text-align:center;font-size:.68rem;color:var(--gold);
+          background:rgba(240,192,64,.07);border:1px solid rgba(240,192,64,.25);
+          border-radius:4px;padding:10px 14px;line-height:1.6">
+          Connect your wallet first to play Online mode.<br>
+          <span style="color:var(--dim)">Testnet: free · Mainnet: 1 AP3X entry fee · Winner takes 1.88 AP3X (6% covers gas &amp; infrastructure)</span>
+        </div>
+
+        <!-- create / join row -->
+        <div class="op-row">
+          <div class="op-box create">
+            <h3>CREATE GAME</h3>
+            <p>You go first. A Game ID is generated on-chain.<br>
+               Share it with your opponent.</p>
+            <button class="btn btn-sm" id="btn-create" disabled>CREATE &amp; WAIT</button>
+          </div>
+          <div class="op-box join">
+            <h3>JOIN GAME</h3>
+            <p>Enter the Game ID your opponent shared with you.</p>
+            <input type="number" id="inp-gid" placeholder="e.g.  42" min="1">
+            <button class="btn btn-gold btn-sm" id="btn-join" disabled>JOIN &amp; PAY</button>
+          </div>
+        </div>
+
+        <!-- WebRTC P2P signaling section -->
+        <div id="signal-section" style="display:none">
+          <h3>🔗 P2P CONNECTION</h3>
+          <div class="sig-step" id="sig-instructions">Waiting…</div>
+
+          <textarea id="sig-local"  placeholder="Your connection signal will appear here…" readonly></textarea>
+          <button class="btn btn-purple btn-sm" id="btn-copy-sig">📋 COPY MY SIGNAL</button>
+
+          <textarea id="sig-remote" placeholder="Paste opponent's signal here…"></textarea>
+          <button class="btn btn-purple btn-sm" id="btn-apply-sig">⚡ CONNECT</button>
+
+          <div id="p2p-status">P2P: waiting…</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /panels -->
+
+  <!-- LOG -->
+  <div id="log"></div>
+
+</main>
+
+<!-- ethers v6 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+//  NETWORK CONFIG
+// ═══════════════════════════════════════════════════════════════
+const NETS = {
+  testnet:{
+    chainIdHex:'0x236e', chainIdDec:9070,
+    chainName:'Apex Fusion Nexus Testnet',
+    currency:{name:'tAP3X',symbol:'tAP3X',decimals:18},
+    rpcUrls:['https://rpc.nexus.testnet.apexfusion.org'],
+    explorerUrls:['https://explorer.nexus.testnet.apexfusion.org'],
+    entryFee:0n, label:'TESTNET · tAP3X · 9070',
+    contract:'0x0000000000000000000000000000000000000000', // ← replace after deploy
+  },
+  mainnet:{
+    chainIdHex:'0x236d', chainIdDec:9069,
+    chainName:'Apex Fusion Nexus Mainnet',
+    currency:{name:'AP3X',symbol:'AP3X',decimals:18},
+    rpcUrls:['https://rpc.nexus.mainnet.apexfusion.org'],
+    explorerUrls:['https://explorer.nexus.mainnet.apexfusion.org'],
+    entryFee:ethers.parseEther('1'), label:'MAINNET · AP3X · 9069',
+    contract:'0x0000000000000000000000000000000000000000', // ← replace after deploy
+  },
+};
+
+const ABI = [
+  'function createGame() external payable returns (uint256)',
+  'function joinGame(uint256) external payable',
+  'function reportWinner(uint256,address) external',
+  'function cancelGame(uint256) external',
+  'function pingActivity(uint256) external',
+  'function claimTimeout(uint256) external',
+  'function withdraw() external',
+  'function getGame(uint256) external view returns (tuple(address player1,address player2,address winner,uint8 state,uint256 pot,uint256 createdAt,uint256 lastActivityAt))',
+  'function pendingOf(address) external view returns (uint256)',
+  'event GameCreated(uint256 indexed gameId,address indexed player1,uint256 entryFee)',
+  'event GameJoined(uint256 indexed gameId,address indexed player2)',
+  'event GameFinished(uint256 indexed gameId,address indexed winner,uint256 prize)',
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let provider, signer, userAddr, netKey=null, contract;
+let currentGameId=null, isHost=false;
+let pingIv=null, pollIv=null;
+let gameMode='single'; // 'single' | 'duo' | 'online'
+
+// WebRTC
+let pc=null, dc=null; // RTCPeerConnection, RTCDataChannel
+const ICE = {iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]};
+
+// ═══════════════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+const btnConnect   = $('btn-connect');
+const addrChip     = $('addr-chip');
+const rewardWrap   = $('reward-wrap');
+const rewardVal    = $('reward-val');
+const btnWithdraw  = $('btn-withdraw');
+const btnTestnet   = $('btn-testnet');
+const btnMainnet   = $('btn-mainnet');
+const netNameEl    = $('net-name');
+const netTag       = $('net-tag');
+const btnCreate    = $('btn-create');
+const btnJoin      = $('btn-join');
+const inpGid       = $('inp-gid');
+const gidBox       = $('gid-box');
+const gidNum       = $('gid-num');
+const btnCopyGid   = $('btn-copy-gid');
+const sigSection   = $('signal-section');
+const sigLocal     = $('sig-local');
+const sigRemote    = $('sig-remote');
+const btnCopySig   = $('btn-copy-sig');
+const btnApplySig  = $('btn-apply-sig');
+const p2pStatus    = $('p2p-status');
+const sigInstr     = $('sig-instructions');
+const logEl        = $('log');
+const ctrlHint     = $('ctrl-hint');
+const walletNotice = $('wallet-notice');
+
+function log(msg,cls=''){
+  const s=document.createElement('span');
+  const t=new Date().toLocaleTimeString('en');
+  s.innerHTML=`<span style="color:rgba(0,255,180,.28)">[${t}]</span> ${msg}\n`;
+  if(cls)s.className=cls;
+  logEl.appendChild(s);logEl.scrollTop=logEl.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MODE TABS
+// ═══════════════════════════════════════════════════════════════
+function setMode(m){
+  gameMode=m;
+  ['single','duo','online'].forEach(x=>{
+    $('tab-'+x).className='tab';
+    $('panel-'+x).classList.remove('visible');
+  });
+  $('tab-'+m).className='tab active-'+m;
+  $('panel-'+m).classList.add('visible');
+
+  // update controls hint
+  if(m==='single'){
+    ctrlHint.innerHTML='<span class="key">↑ ↓</span><span style="color:var(--dim)"> your paddle</span>';
+    $('lbl1').textContent='PLAYER'; $('lbl2').textContent='AI';
+  } else if(m==='duo'){
+    ctrlHint.innerHTML='<span class="key">W</span><span class="key">S</span><span style="color:var(--dim)"> left paddle</span>&nbsp;&nbsp;<span class="key">↑</span><span class="key">↓</span><span style="color:var(--dim)"> right paddle</span>';
+    $('lbl1').textContent='PLAYER 1'; $('lbl2').textContent='PLAYER 2';
+  } else {
+    ctrlHint.innerHTML='<span class="key">↑ ↓</span><span style="color:var(--dim)"> your paddle</span>';
+    $('lbl1').textContent='YOU'; $('lbl2').textContent='OPPONENT';
+  }
+
+  resetOverlay();
+  if(animId){cancelAnimationFrame(animId);animId=null;}
+  game=null;
+  $('sc1').textContent='0';$('sc2').textContent='0';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  METAMASK — correct EIP-1193 flow
+// ═══════════════════════════════════════════════════════════════
+btnConnect.addEventListener('click', connectWallet);
+
+async function connectWallet(){
+  // Check for MetaMask / injected provider
+  if(typeof window.ethereum==='undefined'){
+    log('MetaMask not found. Please install the MetaMask extension.','lerr');
+    log('→ <a href="https://metamask.io/download/" target="_blank" style="color:var(--glow2)">metamask.io/download</a>','lerr');
+    return;
+  }
+
+  try {
+    // Step 1: request account access — triggers MetaMask popup
+    const accounts = await window.ethereum.request({method:'eth_requestAccounts'});
+    if(!accounts||!accounts.length){
+      log('Access denied — please approve in MetaMask.','lwarn'); return;
+    }
+
+    // Step 2: wrap with ethers AFTER access is granted
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer   = await provider.getSigner();
+    userAddr = await signer.getAddress();
+
+    addrChip.textContent = userAddr.slice(0,6)+'…'+userAddr.slice(-4);
+    addrChip.style.display='inline-block';
+    btnConnect.style.display='none';
+
+    await detectNetwork();
+    await refreshReward();
+
+    window.ethereum.on('chainChanged',()=>location.reload());
+    window.ethereum.on('accountsChanged',()=>location.reload());
+
+    log('Wallet connected: '+userAddr,'lok');
+  } catch(e){
+    if(e.code===4001) log('Connection rejected by user.','lwarn');
+    else log('Connection error: '+(e.message||e),'lerr');
+  }
+}
+
+async function detectNetwork(){
+  const net=await provider.getNetwork();
+  const hex='0x'+net.chainId.toString(16);
+  btnTestnet.style.display='none';
+  btnMainnet.style.display='none';
+
+  if(hex===NETS.testnet.chainIdHex){
+    netKey='testnet';
+    netNameEl.textContent='NEXUS TESTNET';
+    netTag.textContent=NETS.testnet.label;netTag.className='net-tag tag-test';
+    btnMainnet.style.display='inline-block';
+    walletNotice.innerHTML='Connected to <b style="color:var(--glow2)">Testnet</b> — games are <b>free</b>. <span style="color:var(--dim)">Winner takes all (no fee on testnet).</span>';
+  } else if(hex===NETS.mainnet.chainIdHex){
+    netKey='mainnet';
+    netNameEl.textContent='NEXUS MAINNET';
+    netTag.textContent=NETS.mainnet.label;netTag.className='net-tag tag-main';
+    btnTestnet.style.display='inline-block';
+    walletNotice.innerHTML='Connected to <b style="color:var(--gold)">Mainnet</b>. Entry: <b>1 AP3X</b> · Winner takes <b>1.88 AP3X</b> · 6% covers gas &amp; infrastructure.';
+  } else {
+    netKey=null;
+    netNameEl.textContent='WRONG NETWORK';
+    netTag.textContent='Switch to Nexus';netTag.className='net-tag tag-bad';
+    btnTestnet.style.display='inline-block';
+    btnMainnet.style.display='inline-block';
+    log('Wrong network! Please switch to Apex Fusion Nexus.','lwarn');
+
+    // offer to add network
+    log('Click "→ Testnet" or "→ Mainnet" above to add the network to MetaMask.','lwarn');
+    log('Or visit: <a href="https://developers.apexfusion.org" target="_blank" style="color:var(--glow2)">developers.apexfusion.org</a> for setup guide.','');
+    return;
+  }
+
+  initContract();
+  btnCreate.disabled=false;
+  btnJoin.disabled=false;
+  log('Network: '+NETS[netKey].chainName,'lok');
+}
+
+async function switchNetwork(key){
+  const c=NETS[key];
+  try {
+    await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:c.chainIdHex}]});
+  } catch(e){
+    if(e.code===4902||e.code===-32603){
+      try {
+        await window.ethereum.request({method:'wallet_addEthereumChain',params:[{
+          chainId:c.chainIdHex, chainName:c.chainName,
+          nativeCurrency:c.currency, rpcUrls:c.rpcUrls, blockExplorerUrls:c.explorerUrls
+        }]});
+      } catch(e2){log('Add network rejected: '+e2.message,'lerr');}
+    } else log('Network switch error: '+e.message,'lerr');
+  }
+}
+
+btnTestnet.addEventListener('click',()=>switchNetwork('testnet'));
+btnMainnet.addEventListener('click',()=>switchNetwork('mainnet'));
+
+// ═══════════════════════════════════════════════════════════════
+//  CONTRACT
+// ═══════════════════════════════════════════════════════════════
+function initContract(){
+  contract=new ethers.Contract(NETS[netKey].contract,ABI,signer);
+}
+
+async function refreshReward(){
+  if(!contract||!userAddr)return;
+  try{
+    const p=await contract.pendingOf(userAddr);
+    if(p>0n){
+      rewardVal.textContent=parseFloat(ethers.formatEther(p)).toFixed(4);
+      rewardWrap.style.display='flex';
+    } else rewardWrap.style.display='none';
+  }catch{}
+}
+
+btnWithdraw.addEventListener('click',async()=>{
+  if(!contract)return;
+  try{
+    log('Withdrawing rewards…','lwarn');
+    const tx=await contract.withdraw();
+    log('Tx: '+tx.hash);await tx.wait();
+    log('Rewards withdrawn successfully!','lok');
+    await refreshReward();
+  }catch(e){log('Error: '+(e.shortMessage||e.message),'lerr');}
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  BLOCKCHAIN ACTIONS
+// ═══════════════════════════════════════════════════════════════
+btnCreate.addEventListener('click', onCreateGame);
+btnJoin.addEventListener('click', onJoinGame);
+
+async function onCreateGame(){
+  if(!netKey){log('Connect wallet first!','lwarn');return;}
+  try{
+    log('Creating game on-chain…','lwarn');
+    const fee=NETS[netKey].entryFee;
+    const tx=await contract.createGame({value:fee});
+    log('Tx: '+tx.hash);
+    const rc=await tx.wait();
+    const ev=rc.logs.map(l=>{try{return contract.interface.parseLog(l);}catch{}}).find(e=>e?.name==='GameCreated');
+    if(ev){
+      currentGameId=ev.args.gameId.toString();
+      isHost=true;
+      showGameId(currentGameId);
+      log('Game created! ID = '+currentGameId,'lok');
+      // start WebRTC as host
+      startWebRTC(true);
+      pollForOpponent();
+    }
+  }catch(e){log('Error: '+(e.shortMessage||e.message),'lerr');}
+}
+
+async function onJoinGame(){
+  const gid=inpGid.value.trim();
+  if(!gid){log('Enter a Game ID!','lwarn');return;}
+  if(!netKey){log('Connect wallet first!','lwarn');return;}
+  try{
+    log('Joining game #'+gid+'…','lwarn');
+    const fee=NETS[netKey].entryFee;
+    const tx=await contract.joinGame(BigInt(gid),{value:fee});
+    log('Tx: '+tx.hash);await tx.wait();
+    currentGameId=gid;isHost=false;
+    log('Joined game #'+gid+'!','lok');
+    // start WebRTC as peer
+    startWebRTC(false);
+  }catch(e){log('Error: '+(e.shortMessage||e.message),'lerr');}
+}
+
+function pollForOpponent(){
+  if(!contract||!currentGameId)return;
+  pollIv=setInterval(async()=>{
+    try{
+      const g=await contract.getGame(BigInt(currentGameId));
+      if(Number(g.state)===1){clearInterval(pollIv);log('Opponent joined!','lok');}
+    }catch{}
+  },4000);
+}
+
+function startPingInterval(){
+  if(!contract||!currentGameId)return;
+  pingIv=setInterval(async()=>{
+    try{await contract.pingActivity(BigInt(currentGameId));}catch{}
+  },30000);
+}
+
+function stopIntervals(){clearInterval(pollIv);clearInterval(pingIv);pollIv=pingIv=null;}
+
+async function reportWinnerOnChain(winnerAddr){
+  if(!contract||!currentGameId)return;
+  try{
+    log('Recording winner on-chain…','lwarn');
+    const tx=await contract.reportWinner(BigInt(currentGameId),winnerAddr);
+    await tx.wait();
+    log('Winner recorded! Prize goes to pending withdrawals.','lok');
+    currentGameId=null;gidBox.style.display='none';stopIntervals();
+    await refreshReward();
+  }catch(e){log('Report error: '+(e.shortMessage||e.message),'lerr');}
+}
+
+async function cancelGame(){
+  if(!contract||!currentGameId)return;
+  try{
+    log('Cancelling game…','lwarn');
+    const tx=await contract.cancelGame(BigInt(currentGameId));
+    await tx.wait();
+    currentGameId=null;stopIntervals();gidBox.style.display='none';
+    resetOverlay();log('Game cancelled — entry fee returned.','lok');
+    await refreshReward();
+  }catch(e){log('Error: '+(e.shortMessage||e.message),'lerr');}
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GAME ID BOX
+// ═══════════════════════════════════════════════════════════════
+function showGameId(id){
+  gidNum.textContent=id;gidBox.style.display='block';
+}
+btnCopyGid.addEventListener('click',()=>{
+  navigator.clipboard.writeText(gidNum.textContent).then(()=>{
+    btnCopyGid.textContent='✓ COPIED!';
+    setTimeout(()=>btnCopyGid.textContent='📋 COPY ID',2000);
+  }).catch(()=>log('Clipboard unavailable.','lwarn'));
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  WebRTC P2P — copy/paste signaling (no server needed)
+// ═══════════════════════════════════════════════════════════════
+function setP2P(msg,cls=''){p2pStatus.textContent='P2P: '+msg;p2pStatus.className=cls?'p2p-'+cls:'';}
+
+function startWebRTC(asHost){
+  pc=new RTCPeerConnection(ICE);
+  sigSection.style.display='flex';
+
+  pc.onicecandidate=e=>{
+    if(!e.candidate){ // all ICE gathered — show full offer/answer
+      const sdp=JSON.stringify(pc.localDescription);
+      sigLocal.value=btoa(sdp);
+      sigInstr.innerHTML=asHost
+        ? '<b>Step 1:</b> Copy your signal below and send it to your opponent.<br><b>Step 2:</b> Paste opponent\'s signal and click CONNECT.'
+        : '<b>Step 1:</b> Copy your signal below and send it to the game creator.<br><b>Step 2:</b> Paste the creator\'s signal and click CONNECT.';
+      setP2P('signal ready — share with opponent','connecting');
+      log('P2P signal ready. Copy and send to opponent.','lpurp');
+    }
+  };
+
+  pc.onconnectionstatechange=()=>{
+    const s=pc.connectionState;
+    if(s==='connected'){setP2P('connected ✓','connected');log('P2P connected!','lok');sigSection.style.display='none';startPingInterval();}
+    if(s==='failed'||s==='disconnected'){setP2P('connection lost','error');log('P2P connection lost.','lerr');handleP2PDisconnect();}
+  };
+
+  if(asHost){
+    // Host creates DataChannel and offer
+    dc=pc.createDataChannel('pong',{ordered:false,maxRetransmits:0});
+    setupDataChannel();
+    pc.createOffer().then(o=>pc.setLocalDescription(o));
+  } else {
+    // Peer waits for DataChannel
+    pc.ondatachannel=e=>{dc=e.channel;setupDataChannel();};
+  }
+}
+
+function setupDataChannel(){
+  dc.onopen=()=>{log('Data channel open.','lpurp');};
+  dc.onmessage=e=>{handleP2PMessage(JSON.parse(e.data));};
+  dc.onerror=e=>{log('DC error: '+e,'lerr');};
+}
+
+function sendP2P(obj){
+  if(dc&&dc.readyState==='open')dc.send(JSON.stringify(obj));
+}
+
+function handleP2PMessage(msg){
+  if(!game)return;
+  if(msg.type==='paddle'){
+    // opponent's paddle position
+    if(isHost) game.p2.y=msg.y;
+    else        game.p1.y=msg.y;
+  }
+  if(msg.type==='ball'&&!isHost){
+    // host is authoritative for ball
+    game.ball.x=msg.x;game.ball.y=msg.y;game.ball.vx=msg.vx;game.ball.vy=msg.vy;
+  }
+  if(msg.type==='score'){
+    game.p1.score=msg.s1;game.p2.score=msg.s2;
+    $('sc1').textContent=msg.s1;$('sc2').textContent=msg.s2;
+  }
+  if(msg.type==='win'){
+    // Opponent declared winner
+    endOnlineGame(msg.winner==='me' ? 'OPPONENT WINS!' : 'YOU WIN!', msg.winner!=='me');
+  }
+}
+
+btnCopySig.addEventListener('click',()=>{
+  navigator.clipboard.writeText(sigLocal.value).then(()=>{
+    btnCopySig.textContent='✓ COPIED!';
+    setTimeout(()=>btnCopySig.textContent='📋 COPY MY SIGNAL',2000);
+  }).catch(()=>log('Clipboard unavailable.','lwarn'));
+});
+
+btnApplySig.addEventListener('click',async()=>{
+  const raw=sigRemote.value.trim();
+  if(!raw){log('Paste the opponent\'s signal first!','lwarn');return;}
+  try{
+    const sdp=JSON.parse(atob(raw));
+    await pc.setRemoteDescription(sdp);
+    if(sdp.type==='offer'){
+      const ans=await pc.createAnswer();
+      await pc.setLocalDescription(ans);
+    }
+    setP2P('establishing connection…','connecting');
+    log('Signal applied — connecting to opponent…','lpurp');
+  }catch(e){log('Invalid signal: '+e.message,'lerr');}
+});
+
+function handleP2PDisconnect(){
+  if(!currentGameId||!contract)return;
+  log('Opponent disconnected — you may claim timeout in 5 minutes.','lwarn');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  OVERLAY
+// ═══════════════════════════════════════════════════════════════
+const overlay=$('overlay'),ovTitle=$('ov-title'),ovSub=$('ov-sub'),ovBtns=$('ov-btns');
+
+function hideOverlay(){overlay.style.display='none';}
+
+function resetOverlay(){
+  ovTitle.textContent='PONG';
+  ovSub.textContent='Select a game mode above, then press START.';
+  ovBtns.innerHTML='<button class="btn" id="btn-start">▶ START</button>';
+  overlay.style.display='flex';
+  $('btn-start').addEventListener('click',startCurrentMode);
+}
+
+function showWaitingOverlay(){
+  ovTitle.textContent='WAITING…';
+  ovSub.innerHTML=`Game ID: <strong style="color:var(--glow2);font-size:1.5em">${currentGameId}</strong><br>Share this with your opponent, then connect via P2P below.`;
+  ovBtns.innerHTML='<button class="btn btn-red" id="btn-ov-cancel">✕ CANCEL GAME</button>';
+  overlay.style.display='flex';
+  $('btn-ov-cancel').addEventListener('click',cancelGame);
+}
+
+function showEndOverlay(title,sub){
+  ovTitle.textContent=title;
+  ovSub.textContent=sub;
+  ovBtns.innerHTML='<button class="btn" id="btn-replay">▶ PLAY AGAIN</button>';
+  overlay.style.display='flex';
+  $('btn-replay').addEventListener('click',()=>{
+    if(gameMode==='online')resetOverlay();
+    else {startCurrentMode();}
+  });
+}
+
+function startCurrentMode(){
+  if(gameMode==='single')   startSingle();
+  else if(gameMode==='duo') startDuo();
+  else { showWaitingOverlay(); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PONG ENGINE
+// ═══════════════════════════════════════════════════════════════
+const canvas=$('c'),ctx=canvas.getContext('2d');
+const W=canvas.width,H=canvas.height;
+const PW=12,PH=80,BR=7,WIN_SCORE=5;
+const P1X=28,P2X=W-28-PW;
+const TIMEOUT_MS=5*60*1000;
+
+let game=null,animId=null;
+const keys={};
+let lastKeyTime=Date.now();
+let p2pSendAccum=0; // throttle P2P sends
+
+document.addEventListener('keydown',e=>{keys[e.key]=true;lastKeyTime=Date.now();e.preventDefault&&['ArrowUp','ArrowDown'].includes(e.key)&&e.preventDefault();});
+document.addEventListener('keyup',  e=>{keys[e.key]=false;});
+
+function mkGame(){
+  return{
+    ball:{x:W/2,y:H/2,vx:5*(Math.random()>.5?1:-1),vy:3*(Math.random()>.5?1:-1)},
+    p1:{y:H/2-PH/2,score:0},
+    p2:{y:H/2-PH/2,score:0},
+  };
+}
+
+function startSingle(){
+  game=mkGame();
+  $('lbl1').textContent='PLAYER';$('lbl2').textContent='AI';
+  $('sc1').textContent='0';$('sc2').textContent='0';
+  if(animId)cancelAnimationFrame(animId);
+  hideOverlay();loop();
+  log('Single player started — use ↑↓ to move.','lok');
+}
+
+function startDuo(){
+  game=mkGame();
+  $('lbl1').textContent='PLAYER 1';$('lbl2').textContent='PLAYER 2';
+  $('sc1').textContent='0';$('sc2').textContent='0';
+  if(animId)cancelAnimationFrame(animId);
+  hideOverlay();loop();
+  log('Duo Home started — W/S vs ↑↓.','lok');
+}
+
+function startOnlineGame(){
+  game=mkGame();
+  $('lbl1').textContent=isHost?'YOU':'OPPONENT';
+  $('lbl2').textContent=isHost?'OPPONENT':'YOU';
+  $('sc1').textContent='0';$('sc2').textContent='0';
+  lastKeyTime=Date.now();
+  if(animId)cancelAnimationFrame(animId);
+  hideOverlay();loop();
+  log('Online game started!','lok');
+}
+
+// ── INPUT ─────────────────────────────────────────────────────
+function handleInput(){
+  const {p1,p2}=game;
+  if(gameMode==='single'){
+    if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-6);
+    if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+6);
+  } else if(gameMode==='duo'){
+    if(keys['w']||keys['W']) p1.y=Math.max(0,p1.y-6);
+    if(keys['s']||keys['S']) p1.y=Math.min(H-PH,p1.y+6);
+    if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-6);
+    if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+6);
+  } else {
+    // online: each player controls their own paddle via ↑↓
+    if(isHost){
+      if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-6);
+      if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+6);
+    } else {
+      if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-6);
+      if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+6);
+    }
+  }
+}
+
+// ── AI ────────────────────────────────────────────────────────
+function aiMove(){
+  const tgt=game.ball.y-PH/2;
+  const spd=3.9;
+  if(game.p2.y<tgt-2)       game.p2.y=Math.min(H-PH,game.p2.y+spd);
+  else if(game.p2.y>tgt+2)  game.p2.y=Math.max(0,game.p2.y-spd);
+}
+
+// ── UPDATE ────────────────────────────────────────────────────
+function update(dt){
+  if(!game)return;
+  handleInput();
+  if(gameMode==='single')aiMove();
+
+  // online timeout
+  if(gameMode==='online'&&Date.now()-lastKeyTime>TIMEOUT_MS){
+    endOnlineGame('TIMEOUT — OPPONENT WINS',false);
+    if(contract&&currentGameId)contract.claimTimeout(BigInt(currentGameId)).catch(()=>{});
+    return;
+  }
+
+  // only host simulates ball in online mode
+  const simBall=(gameMode!=='online'||isHost);
+
+  if(simBall){
+    const b=game.ball;
+    b.x+=b.vx;b.y+=b.vy;
+    if(b.y-BR<=0){b.y=BR;b.vy*=-1;}
+    if(b.y+BR>=H){b.y=H-BR;b.vy*=-1;}
+
+    // left paddle
+    if(b.x-BR<=P1X+PW&&b.y>=game.p1.y&&b.y<=game.p1.y+PH&&b.vx<0){
+      b.vx=Math.abs(b.vx)*1.04;
+      b.vy+=(b.y-(game.p1.y+PH/2))*0.11;
+      clamp(b);
+    }
+    // right paddle
+    if(b.x+BR>=P2X&&b.y>=game.p2.y&&b.y<=game.p2.y+PH&&b.vx>0){
+      b.vx=-Math.abs(b.vx)*1.04;
+      b.vy+=(b.y-(game.p2.y+PH/2))*0.11;
+      clamp(b);
+    }
+
+    if(b.x<0){game.p2.score++;updSc();rst(b,1);}
+    if(b.x>W){game.p1.score++;updSc();rst(b,-1);}
+  }
+
+  // ── P2P sync (online, host authoritative) ──
+  if(gameMode==='online'&&dc&&dc.readyState==='open'){
+    p2pSendAccum+=(dt||16);
+    if(p2pSendAccum>=50){ // send ~20fps
+      p2pSendAccum=0;
+      const myPaddleY=isHost?game.p1.y:game.p2.y;
+      sendP2P({type:'paddle',y:myPaddleY});
+      if(isHost) sendP2P({type:'ball',x:game.ball.x,y:game.ball.y,vx:game.ball.vx,vy:game.ball.vy});
+    }
+  }
+
+  // win check
+  if(game.p1.score>=WIN_SCORE){
+    if(gameMode==='online') endOnlineGame(isHost?'YOU WIN!':'OPPONENT WINS!', isHost);
+    else endLocal('PLAYER 1 WINS!');return;
+  }
+  if(game.p2.score>=WIN_SCORE){
+    if(gameMode==='online') endOnlineGame(isHost?'OPPONENT WINS!':'YOU WIN!', !isHost);
+    else endLocal(gameMode==='duo'?'PLAYER 2 WINS!':'AI WINS!');return;
+  }
+}
+
+function clamp(b){const s=Math.hypot(b.vx,b.vy);const m=12;if(s>m){b.vx=b.vx/s*m;b.vy=b.vy/s*m;}}
+function rst(b,d){b.x=W/2;b.y=H/2;b.vx=5*d;b.vy=3*(Math.random()>.5?1:-1);}
+function updSc(){$('sc1').textContent=game.p1.score;$('sc2').textContent=game.p2.score;}
+
+// ── DRAW ─────────────────────────────────────────────────────
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#020810';ctx.fillRect(0,0,W,H);
+  ctx.setLineDash([8,10]);ctx.strokeStyle='rgba(0,255,180,.1)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+  ctx.setLineDash([]);
+  if(!game)return;
+  const{ball:b,p1,p2}=game;
+  function pad(x,y,col){
+    ctx.shadowBlur=14;ctx.shadowColor=col;ctx.fillStyle=col;
+    ctx.beginPath();ctx.roundRect(x,y,PW,PH,4);ctx.fill();ctx.shadowBlur=0;
+  }
+  pad(P1X,p1.y,'#00ffb4');
+  pad(P2X,p2.y,'#00c8ff');
+  ctx.shadowBlur=20;ctx.shadowColor='#fff';ctx.fillStyle='#fff';
+  ctx.beginPath();ctx.arc(b.x,b.y,BR,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+let lastTime=0;
+function loop(ts=0){
+  const dt=ts-lastTime;lastTime=ts;
+  update(dt);draw();
+  animId=requestAnimationFrame(loop);
+}
+
+// ── END GAME ─────────────────────────────────────────────────
+function endLocal(title){
+  cancelAnimationFrame(animId);animId=null;
+  const sc=(game?.p1.score??0)+' : '+(game?.p2.score??0);
+  game=null;
+  showFlash();
+  showEndOverlay(title,sc);
+}
+
+function endOnlineGame(title,iWon){
+  cancelAnimationFrame(animId);animId=null;
+  const sc=(game?.p1.score??0)+' : '+(game?.p2.score??0);
+  game=null;
+  showFlash();
+  showEndOverlay(title,sc);
+  // notify opponent
+  if(dc&&dc.readyState==='open') sendP2P({type:'win',winner:iWon?'me':'them'});
+  // report on chain
+  if(iWon&&userAddr) reportWinnerOnChain(userAddr);
+  stopIntervals();
+  if(pc){pc.close();pc=null;dc=null;}
+}
+
+function showFlash(){
+  const f=$('wflash');f.style.display='block';
+  setTimeout(()=>f.style.display='none',1400);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+draw(); // static first frame
+log('Welcome to PONG on ApexFusion Nexus!','lok');
+log('Connect your MetaMask wallet to play Online mode.','');
+log('Single and Duo Home modes are always free.','');
+
+// start button wired after page load
+$('btn-start').addEventListener('click',startCurrentMode);
+</script>
+</body>
+</html>
