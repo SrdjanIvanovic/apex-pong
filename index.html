@@ -884,21 +884,21 @@ function startOnlineGame(){
 function handleInput(){
   const {p1,p2}=game;
   if(gameMode==='single'){
-    if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-6);
-    if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+6);
+    if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-9);
+    if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+9);
   } else if(gameMode==='duo'){
-    if(keys['w']||keys['W']) p1.y=Math.max(0,p1.y-6);
-    if(keys['s']||keys['S']) p1.y=Math.min(H-PH,p1.y+6);
-    if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-6);
-    if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+6);
+    if(keys['w']||keys['W']) p1.y=Math.max(0,p1.y-9);
+    if(keys['s']||keys['S']) p1.y=Math.min(H-PH,p1.y+9);
+    if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-9);
+    if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+9);
   } else {
     // online: each player controls their own paddle via ↑↓
     if(isHost){
-      if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-6);
-      if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+6);
+      if(keys['ArrowUp'])   p1.y=Math.max(0,p1.y-9);
+      if(keys['ArrowDown']) p1.y=Math.min(H-PH,p1.y+9);
     } else {
-      if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-6);
-      if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+6);
+      if(keys['ArrowUp'])   p2.y=Math.max(0,p2.y-9);
+      if(keys['ArrowDown']) p2.y=Math.min(H-PH,p2.y+9);
     }
   }
 }
@@ -1035,7 +1035,7 @@ function showFlash(){
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 draw(); // static first frame
-log('Welcome to PONG on ApexFusion Nexus!','lok');
+log('Welcome to PONG on Apex Fusion Nexus!','lok');
 log('Connect your MetaMask wallet to play Online mode.','');
 log('Single and Duo Home modes are always free.','');
 
