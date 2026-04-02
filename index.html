@@ -1028,16 +1028,15 @@ function endOnlineGame(title,iWon){
   game=null;
   showFlash();
 
-  // Notify opponent before closing P2P
-  if(dc&&dc.readyState==='open') sendP2P({type:'win',winner:iWon?'me':'them'});
+ // Notify opponent
+if(dc&&dc.readyState==='open') sendP2P({type:'win',winner:iWon?'me':'them'});
 
-  // Report winner on chain (only winner reports)
-  const gid=currentGameId;
-  if(iWon&&userAddr&&gid) reportWinnerOnChain(userAddr);
+// Wait a moment then report — gives DC time to send win message
+const gid=currentGameId;
+stopIntervals();
+setTimeout(()=>closeP2P(), 3000); // close P2P after 3s
 
-  // Reset all online state
-  stopIntervals();
-  closeP2P();
+if(iWon&&userAddr&&gid) reportWinnerOnChain(userAddr);
   currentGameId=null;
   isHost=false;
 
