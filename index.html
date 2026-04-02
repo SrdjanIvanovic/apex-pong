@@ -355,8 +355,8 @@ const NETS = {
     currency:{name:'tAP3X',symbol:'tAP3X',decimals:18},
     rpcUrls:['https://rpc.nexus.testnet.apexfusion.org'],
     explorerUrls:['https://explorer.nexus.testnet.apexfusion.org'],
-    entryFee:0n, label:'TESTNET · tAP3X · 9070',
-    contract:'0x69d86B4cde966a8dc8Bfa79272e2F57c3D77df46', // ← replace after deploy
+    entryFee:ethers.parseEther('1'), label:'TESTNET · tAP3X · 9070',
+    contract:'0x54131b6F0D81f7EbdCdBC9E9674271A642684742',
   },
   mainnet:{
     chainIdHex:'0x236d', chainIdDec:9069,
@@ -365,7 +365,7 @@ const NETS = {
     rpcUrls:['https://rpc.nexus.mainnet.apexfusion.org'],
     explorerUrls:['https://explorer.nexus.mainnet.apexfusion.org'],
     entryFee:ethers.parseEther('1'), label:'MAINNET · AP3X · 9069',
-    contract:'0x69d86B4cde966a8dc8Bfa79272e2F57c3D77df46', // ← replace after deploy
+    contract:'0x54131b6F0D81f7EbdCdBC9E9674271A642684742',
   },
 };
 
