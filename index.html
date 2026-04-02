@@ -1034,7 +1034,7 @@ if(dc&&dc.readyState==='open') sendP2P({type:'win',winner:iWon?'me':'them'});
 // Wait a moment then report — gives DC time to send win message
 const gid=currentGameId;
 stopIntervals();
-setTimeout(()=>closeP2P(), 3000); // close P2P after 3s
+setTimeout(()=>closeP2P(), 5000); // close P2P after 3s
 
 if(iWon&&userAddr&&gid) reportWinnerOnChain(userAddr);
   currentGameId=null;
