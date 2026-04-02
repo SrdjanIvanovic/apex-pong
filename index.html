@@ -714,7 +714,7 @@ function startWebRTC(asHost){
 
   pc.onconnectionstatechange=()=>{
     const s=pc.connectionState;
-    if(s==='connected'){setP2P('connected ✓','connected');log('P2P connected!','lok');sigSection.style.display='none';startPingInterval();}
+    if(s==='connected'){setP2P('connected ✓','connected');log('P2P connected!','lok');sigSection.style.display='none';startPingInterval();startOnlineGame();}
     if(s==='failed'||s==='disconnected'){setP2P('connection lost','error');log('P2P connection lost.','lerr');handleP2PDisconnect();}
   };
 
