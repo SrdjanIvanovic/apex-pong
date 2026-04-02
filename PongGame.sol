@@ -11,7 +11,7 @@ pragma solidity ^0.8.20;
  *  - Pull pattern: winnings accumulate in pendingWithdrawals — withdraw anytime.
  *  - Timeout: 5 minutes of inactivity → other player wins automatically.
  *  - If no opponent joins — creator can cancel and get their entry fee back.
- *  - Testnet: entryFee = 0 (free play, same mechanics).
+ *  - adminCancel: infra can cancel any stuck game at any state.
  */
 contract PongGame {
 
@@ -27,9 +27,9 @@ contract PongGame {
         uint256 lastActivityAt;
     }
 
-    address private _infra;          // infrastructure address (gas & maintenance)
+    address private _infra;
     uint256 public entryFee;
-    uint256 public feeBps = 600;     // 6%
+    uint256 public feeBps = 600;
     uint256 public gameTimeout = 5 minutes;
 
     uint256 private _gameCounter;
@@ -48,6 +48,7 @@ contract PongGame {
     error GameNotFound(uint256 gameId);
     error GameNotWaiting(uint256 gameId);
     error GameNotActive(uint256 gameId);
+    error GameAlreadyFinished(uint256 gameId);
     error NotAPlayer(uint256 gameId, address caller);
     error AlreadyInGame(address player, uint256 activeGameId);
     error CannotJoinOwnGame();
@@ -68,7 +69,6 @@ contract PongGame {
 
     // ─── Player Actions ──────────────────────────────────────────────────────
 
-    /// @notice Create a new game. Locks entry fee on-chain.
     function createGame() external payable returns (uint256 gameId) {
         if (msg.value != entryFee) revert WrongEntryFee(msg.value, entryFee);
         if (playerActiveGame[msg.sender] != 0)
@@ -89,7 +89,6 @@ contract PongGame {
         emit GameCreated(gameId, msg.sender, entryFee);
     }
 
-    /// @notice Join a waiting game. Both players have paid — game starts immediately.
     function joinGame(uint256 gameId) external payable {
         Game storage g = games[gameId];
         if (g.player1 == address(0))      revert GameNotFound(gameId);
@@ -107,7 +106,6 @@ contract PongGame {
         emit GameJoined(gameId, msg.sender);
     }
 
-    /// @notice Report winner at end of match. Prize goes to pendingWithdrawals.
     function reportWinner(uint256 gameId, address winner) external {
         Game storage g = games[gameId];
         if (g.state != GameState.Active) revert GameNotActive(gameId);
@@ -118,7 +116,6 @@ contract PongGame {
         _finalise(gameId, winner);
     }
 
-    /// @notice Heartbeat — call every ~30s during a game to prevent false timeout.
     function pingActivity(uint256 gameId) external {
         Game storage g = games[gameId];
         if (g.state != GameState.Active) revert GameNotActive(gameId);
@@ -128,7 +125,6 @@ contract PongGame {
         emit ActivityPinged(gameId, msg.sender);
     }
 
-    /// @notice Cancel a game still waiting for an opponent. Entry fee is returned.
     function cancelGame(uint256 gameId) external {
         Game storage g = games[gameId];
         if (g.state != GameState.Waiting) revert GameNotWaiting(gameId);
@@ -144,7 +140,6 @@ contract PongGame {
         emit GameCancelled(gameId, msg.sender);
     }
 
-    /// @notice Win by timeout: opponent was inactive for 5+ minutes.
     function claimTimeout(uint256 gameId) external {
         Game storage g = games[gameId];
         if (g.state != GameState.Active) revert GameNotActive(gameId);
@@ -154,10 +149,42 @@ contract PongGame {
         _finalise(gameId, msg.sender);
     }
 
+    // ─── Admin ────────────────────────────────────────────────────────────────
+
+    /// @notice Emergency cancel — infra can unstick any game in any state except Finished.
+    function adminCancel(uint256 gameId) external onlyInfra {
+        Game storage g = games[gameId];
+        if (g.player1 == address(0)) revert GameNotFound(gameId);
+        if (g.state == GameState.Finished) revert GameAlreadyFinished(gameId);
+
+        g.state = GameState.Cancelled;
+        delete playerActiveGame[g.player1];
+        if (g.player2 != address(0)) delete playerActiveGame[g.player2];
+
+        if (g.pot > 0) {
+            if (g.player2 != address(0)) {
+                uint256 half = g.pot / 2;
+                pendingWithdrawals[g.player1] += half;
+                pendingWithdrawals[g.player2] += g.pot - half;
+            } else {
+                pendingWithdrawals[g.player1] += g.pot;
+            }
+            g.pot = 0;
+        }
+        emit GameCancelled(gameId, msg.sender);
+    }
+
+    /// @notice Infra can force-finish a game if both players disconnect.
+    function adminFinish(uint256 gameId, address winner) external onlyInfra {
+        Game storage g = games[gameId];
+        if (g.state != GameState.Active) revert GameNotActive(gameId);
+        if (winner != g.player1 && winner != g.player2)
+            revert NotAPlayer(gameId, winner);
+        _finalise(gameId, winner);
+    }
+
     // ─── Withdraw ─────────────────────────────────────────────────────────────
 
-    /// @notice Withdraw all accumulated winnings in a single transaction.
-    ///         Win multiple games, withdraw them all at once.
     function withdraw() external {
         uint256 amount = pendingWithdrawals[msg.sender];
         if (amount == 0) revert NothingToWithdraw();
@@ -172,11 +199,11 @@ contract PongGame {
     function totalGames() external view returns (uint256) { return _gameCounter; }
     function pendingOf(address player) external view returns (uint256) { return pendingWithdrawals[player]; }
 
-    // ─── Infrastructure ───────────────────────────────────────────────────────
+    // ─── Infrastructure Config ────────────────────────────────────────────────
 
     function setEntryFee(uint256 _fee) external onlyInfra { entryFee = _fee; }
-    function setFeeBps(uint256 _bps)   external onlyInfra { require(_bps<=1500,"max 15%"); feeBps=_bps; }
-    function setGameTimeout(uint256 s) external onlyInfra { gameTimeout=s; }
+    function setFeeBps(uint256 _bps)   external onlyInfra { require(_bps <= 1500, "max 15%"); feeBps = _bps; }
+    function setGameTimeout(uint256 s) external onlyInfra { gameTimeout = s; }
 
     // ─── Internal ────────────────────────────────────────────────────────────
 
@@ -187,7 +214,7 @@ contract PongGame {
         delete playerActiveGame[g.player1];
         delete playerActiveGame[g.player2];
 
-        uint256 fee   = (g.pot * feeBps) / 10_000;  // 6% for gas & infrastructure
+        uint256 fee   = (g.pot * feeBps) / 10_000;
         uint256 prize = g.pot - fee;
 
         pendingWithdrawals[winner] += prize;
