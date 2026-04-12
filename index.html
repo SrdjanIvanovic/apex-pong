@@ -561,7 +561,8 @@ async function onCreateGame(){
       showGameId(currentGameId);
       log('Game created! ID = '+currentGameId,'lok');
       startWebRTC(true);
-      pollForOpponent();
+showWaitingOverlay();
+pollForOpponent();
     }
   }catch(e){
     log('Error: '+(e.shortMessage||e.message),'lerr');
